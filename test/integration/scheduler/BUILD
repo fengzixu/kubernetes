@@ -18,7 +18,6 @@ go_test(
         "preemption_test.go",
         "priorities_test.go",
         "scheduler_test.go",
-        "taint_test.go",
     ],
     embed = [":go_default_library"],
     tags = ["integration"],
