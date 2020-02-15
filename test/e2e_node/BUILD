@@ -135,7 +135,7 @@ go_test(
         "startup_probe_test.go",
         "summary_test.go",
         "system_node_critical_test.go",
-        "taints.go"
+        "taints.go",
         "topology_manager_test.go",
         "volume_manager_test.go",
     ],
