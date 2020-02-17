@@ -35,6 +35,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller/nodelifecycle"
 	"k8s.io/kubernetes/plugin/pkg/admission/podtolerationrestriction"
 	pluginapi "k8s.io/kubernetes/plugin/pkg/admission/podtolerationrestriction/apis/podtolerationrestriction"
+	testutils "k8s.io/kubernetes/test/integration/util"
 )
 
 func newPod(nsName, name string, req, limit v1.ResourceList) *v1.Pod {
@@ -63,24 +64,24 @@ func TestTaintNodeByCondition(t *testing.T) {
 	// Build PodToleration Admission.
 	admission := podtolerationrestriction.NewPodTolerationsPlugin(&pluginapi.Configuration{})
 
-	testCtx := initTestMaster(t, "default", admission)
+	testCtx := testutils.InitTestMaster(t, "default", admission)
 
 	// Build clientset and informers for controllers.
 	externalClientset := kubernetes.NewForConfigOrDie(&restclient.Config{
 		QPS:           -1,
-		Host:          testCtx.httpServer.URL,
+		Host:          testCtx.HttpServer.URL,
 		ContentConfig: restclient.ContentConfig{GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
 	externalInformers := informers.NewSharedInformerFactory(externalClientset, time.Second)
 
 	admission.SetExternalKubeClientSet(externalClientset)
 	admission.SetExternalKubeInformerFactory(externalInformers)
 
-	testCtx = initTestScheduler(t, testCtx, false, nil)
-	defer cleanupTest(t, testCtx)
+	testCtx = testutils.InitTestScheduler(t, testCtx, false, nil)
+	defer testutils.CleanupTest(t, testCtx)
 
-	cs := testCtx.clientSet
-	informers := testCtx.informerFactory
-	nsName := testCtx.ns.Name
+	cs := testCtx.ClientSet
+	informers := testCtx.InformerFactory
+	nsName := testCtx.NS.Name
 
 	// Start NodeLifecycleController for taint.
 	nc, err := nodelifecycle.NewNodeLifecycleController(
@@ -104,13 +105,13 @@ func TestTaintNodeByCondition(t *testing.T) {
 		t.Errorf("Failed to create node controller: %v", err)
 		return
 	}
-	go nc.Run(testCtx.ctx.Done())
+	go nc.Run(testCtx.Ctx.Done())
 
 	// Waiting for all controller sync.
-	externalInformers.Start(testCtx.ctx.Done())
-	externalInformers.WaitForCacheSync(testCtx.ctx.Done())
-	informers.Start(testCtx.ctx.Done())
-	informers.WaitForCacheSync(testCtx.ctx.Done())
+	externalInformers.Start(testCtx.Ctx.Done())
+	externalInformers.WaitForCacheSync(testCtx.Ctx.Done())
+	informers.Start(testCtx.Ctx.Done())
+	informers.WaitForCacheSync(testCtx.Ctx.Done())
 
 	// -------------------------------------------
 	// Test TaintNodeByCondition feature.
@@ -526,7 +527,7 @@ func TestTaintNodeByCondition(t *testing.T) {
 			if _, err := cs.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{}); err != nil {
 				t.Errorf("Failed to create node, err: %v", err)
 			}
-			if err := waitForNodeTaints(cs, node, test.expectedTaints); err != nil {
+			if err := testutils.WaitForNodeTaints(cs, node, test.expectedTaints); err != nil {
 				node, err = cs.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
 				if err != nil {
 					t.Errorf("Failed to get node <%s>", node.Name)
@@ -550,7 +551,7 @@ func TestTaintNodeByCondition(t *testing.T) {
 				pods = append(pods, createdPod)
 
 				if p.fits {
-					if err := waitForPodToSchedule(cs, createdPod); err != nil {
+					if err := testutils.WaitForPodToSchedule(cs, createdPod); err != nil {
 						t.Errorf("Failed to schedule pod %s/%s on the node, err: %v",
 							pod.Namespace, pod.Name, err)
 					}
@@ -562,9 +563,9 @@ func TestTaintNodeByCondition(t *testing.T) {
 				}
 			}
 
-			cleanupPods(cs, t, pods)
-			cleanupNodes(cs, t)
-			waitForSchedulerCacheCleanup(testCtx.scheduler, t)
+			testutils.CleanupPods(cs, t, pods)
+			testutils.CleanupNodes(cs, t)
+			testutils.WaitForSchedulerCacheCleanup(testCtx.Scheduler, t)
 		})
 	}
 }

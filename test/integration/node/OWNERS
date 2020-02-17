@@ -1,6 +1,6 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 approvers:
-- sig-node-maintainers
+- sig-node-approvers
 reviewers:
 - sig-node-reviewers
