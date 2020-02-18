@@ -121,9 +121,10 @@ func createScheduler(
 	)
 }
 
+// TestContext store necessary context info
 type TestContext struct {
 	CloseFn         framework.CloseFunc
-	HttpServer      *httptest.Server
+	HTTPServer      *httptest.Server
 	NS              *v1.Namespace
 	ClientSet       *clientset.Clientset
 	InformerFactory informers.SharedInformerFactory
@@ -132,6 +133,7 @@ type TestContext struct {
 	CancelFn        context.CancelFunc
 }
 
+// CleanupNodes cleans all nodes which were created during integration test
 func CleanupNodes(cs clientset.Interface, t *testing.T) {
 	err := cs.CoreV1().Nodes().DeleteCollection(context.TODO(), metav1.NewDeleteOptions(0), metav1.ListOptions{})
 	if err != nil {
@@ -153,12 +155,13 @@ func PodDeleted(c clientset.Interface, podNamespace, podName string) wait.Condit
 	}
 }
 
+// CleanupTest cleans related resources which were created during integration test
 func CleanupTest(t *testing.T, testCtx *TestContext) {
 	// Kill the scheduler.
 	testCtx.CancelFn()
 	// Cleanup nodes.
 	testCtx.ClientSet.CoreV1().Nodes().DeleteCollection(context.TODO(), nil, metav1.ListOptions{})
-	framework.DeleteTestingNamespace(testCtx.NS, testCtx.HttpServer, t)
+	framework.DeleteTestingNamespace(testCtx.NS, testCtx.HTTPServer, t)
 	testCtx.CloseFn()
 }
 
@@ -178,6 +181,7 @@ func CleanupPods(cs clientset.Interface, t *testing.T, pods []*v1.Pod) {
 	}
 }
 
+// AddTaintToNode add taints to specific node
 func AddTaintToNode(cs clientset.Interface, nodeName string, taint v1.Taint) error {
 	node, err := cs.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	if err != nil {
@@ -232,6 +236,7 @@ func NodeReadyStatus(conditions []v1.NodeCondition) (v1.ConditionStatus, error) 
 	return v1.ConditionFalse, errors.New("None of the conditions is of type NodeReady")
 }
 
+// GetTolerationSeconds gets the period of time the toleration
 func GetTolerationSeconds(tolerations []v1.Toleration) (int64, error) {
 	for _, t := range tolerations {
 		if t.Key == v1.TaintNodeNotReady && t.Effect == v1.TaintEffectNoExecute && t.Operator == v1.TolerationOpExists {
@@ -241,6 +246,7 @@ func GetTolerationSeconds(tolerations []v1.Toleration) (int64, error) {
 	return 0, fmt.Errorf("cannot find toleration")
 }
 
+// NodeCopyWithConditions duplicates the ode object with conditions
 func NodeCopyWithConditions(node *v1.Node, conditions []v1.NodeCondition) *v1.Node {
 	copy := node.DeepCopy()
 	copy.ResourceVersion = "0"
@@ -257,7 +263,7 @@ func UpdateNodeStatus(cs clientset.Interface, node *v1.Node) error {
 	return err
 }
 
-// InitTestMasterAndScheduler initializes a test environment and creates a master with default
+// InitTestMaster initializes a test environment and creates a master with default
 // configuration.
 func InitTestMaster(t *testing.T, nsPrefix string, admission admission.Interface) *TestContext {
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -279,7 +285,7 @@ func InitTestMaster(t *testing.T, nsPrefix string, admission admission.Interface
 		masterConfig.GenericConfig.AdmissionControl = admission
 	}
 
-	_, testCtx.HttpServer, testCtx.CloseFn = framework.RunAMasterUsingServer(masterConfig, s, h)
+	_, testCtx.HTTPServer, testCtx.CloseFn = framework.RunAMasterUsingServer(masterConfig, s, h)
 
 	if nsPrefix != "default" {
 		testCtx.NS = framework.CreateTestingNamespace(nsPrefix+string(uuid.NewUUID()), s, t)
@@ -299,6 +305,7 @@ func InitTestMaster(t *testing.T, nsPrefix string, admission admission.Interface
 	return &testCtx
 }
 
+// WaitForSchedulerCacheCleanup waits for cleanup of scheduler's cache to complete
 func WaitForSchedulerCacheCleanup(sched *scheduler.Scheduler, t *testing.T) {
 	schedulerCacheIsEmpty := func() (bool, error) {
 		dump := sched.Cache().Dump()
@@ -386,6 +393,7 @@ func InitTestSchedulerWithOptions(
 	return testCtx
 }
 
+// CreateAlgorithmSourceFromPolicy creates the schedulerAlgorithmSource from the policy parameter
 func CreateAlgorithmSourceFromPolicy(policy *schedulerapi.Policy, clientSet clientset.Interface) schedulerapi.SchedulerAlgorithmSource {
 	// Serialize the Policy object into a ConfigMap later.
 	info, ok := runtime.SerializerInfoForMediaType(scheme.Codecs.SupportedMediaTypes(), runtime.ContentTypeJSON)
@@ -424,6 +432,7 @@ func WaitForPodToSchedule(cs clientset.Interface, pod *v1.Pod) error {
 	return WaitForPodToScheduleWithTimeout(cs, pod, 30*time.Second)
 }
 
+// PodScheduled checks if the pod has been scheduled
 func PodScheduled(c clientset.Interface, podNamespace, podName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := c.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})

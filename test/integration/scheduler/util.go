@@ -52,7 +52,7 @@ func initDisruptionController(t *testing.T, testCtx *testutils.TestContext) *dis
 	discoveryClient := cacheddiscovery.NewMemCacheClient(testCtx.ClientSet.Discovery())
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
 
-	config := restclient.Config{Host: testCtx.HttpServer.URL}
+	config := restclient.Config{Host: testCtx.HTTPServer.URL}
 	scaleKindResolver := scale.NewDiscoveryScaleKindResolver(testCtx.ClientSet.Discovery())
 	scaleClient, err := scale.NewForConfig(&config, mapper, dynamic.LegacyAPIPathResolverFunc, scaleKindResolver)
 	if err != nil {
